@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // 纯静态网站：把 Vite 构建出的 dist 目录作为静态资源发布，不需要 Worker 脚本
+  "name": "univer-excel",
+  "compatibility_date": "2026-09-26",
+  "assets": {
+    "directory": "./dist"
+  }
+}

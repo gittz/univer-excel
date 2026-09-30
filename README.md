@@ -43,6 +43,16 @@ Cloudflare 控制台 → Workers 和 Pages → 创建 → Pages → 导入现有
 | 构建输出目录 | `dist` |
 | 环境变量 | `NODE_VERSION` = `22`，`PNPM_VERSION` = `9` |
 
+如果在 Cloudflare 里建的是 **Workers** 项目（导入 Git 仓库时的默认选项），用仓库里的 `wrangler.jsonc`，构建设置：
+
+| 项目 | 值 |
+| --- | --- |
+| 构建命令 | `pnpm run build` |
+| 部署命令 | `npx wrangler deploy` |
+| 构建变量 | `PNPM_VERSION` = `9` |
+
+`wrangler.jsonc` 声明把 `dist` 作为静态资源发布；没有这个文件时 `wrangler deploy` 会尝试自动改 `vite.config.js` 并报错 “Cannot modify Vite config: could not find a valid plugins array”。
+
 仓库里只保留 `pnpm-lock.yaml` 一个锁文件（`package-lock.json` 已加入 `.gitignore`），`.node-version` 固定 Node 22。
 
 说明：
@@ -95,6 +105,7 @@ Cloudflare 控制台 → Workers 和 Pages → 创建 → Pages → 导入现有
 
 - `vite.config.js`：构建配置（相对路径）
 - `.node-version`：Cloudflare 构建使用的 Node 版本
+- `wrangler.jsonc`：Cloudflare Workers 部署配置（把 `dist` 作为静态网站发布）
 - `public/_headers`：Cloudflare Pages 缓存规则
 - `src/main.js`：创建 Univer，接入各功能预设，添加导入 / 导出 / 分列 / 水印按钮
 - `src/demo-data.js`：示例工作簿
