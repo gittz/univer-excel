@@ -1,0 +1,15 @@
+# 依赖和构建产物（Cloudflare 会自己安装、构建）
+node_modules
+dist
+
+# 本项目用 pnpm，只保留 pnpm-lock.yaml，避免 Cloudflare 在两种包管理器之间犹豫
+package-lock.json
+
+# 手动部署用的打包文件，接入 GitHub 自动部署后不需要
+*.zip
+
+# 编辑器和系统文件
+.idea
+.vscode
+.DS_Store
+Thumbs.db
