@@ -107,7 +107,8 @@ Cloudflare 控制台 → Workers 和 Pages → 创建 → Pages → 导入现有
 - `.node-version`：Cloudflare 构建使用的 Node 版本
 - `wrangler.jsonc`：Cloudflare Workers 部署配置（把 `dist` 作为静态网站发布）
 - `public/_headers`：Cloudflare Pages 缓存规则
-- `src/main.js`：创建 Univer，接入各功能预设，添加导入 / 导出 / 分列 / 水印按钮
+- `src/main.js`：创建 Univer（Excel 风格的 grid 工具栏），接入各功能预设，添加「文件 ▾」（导入 / 导出）、分列、水印按钮
+- `src/ui-icons.js`：工具栏自定义图标（文件、导入、导出、分列、水印）
 - `src/demo-data.js`：示例工作簿
 - `src/protection.js`：让保护按 Excel 规则生效
 - `src/export-xlsx.js`、`src/import-xlsx.js`：导出 / 导入主流程

@@ -1,8 +1,8 @@
 // Univer 开源版全功能示例（Presets 方式，不使用任何 @univerjs-pro 包）
 // 文档：https://docs.univer.ai/guides/sheets/getting-started/quickstart
-import { createUniver, LocaleType, mergeLocales } from '@univerjs/presets'
+import { createUniver, LocaleType, mergeLocales, ICommandService, CommandType } from '@univerjs/presets'
 
-import { UniverSheetsCorePreset } from '@univerjs/preset-sheets-core'
+import { UniverSheetsCorePreset, IMenuManagerService, MenuItemType, RibbonStartGroup } from '@univerjs/preset-sheets-core'
 import sheetsCoreZhCN from '@univerjs/preset-sheets-core/locales/zh-CN'
 import { UniverSheetsConditionalFormattingPreset } from '@univerjs/preset-sheets-conditional-formatting'
 import sheetsCFZhCN from '@univerjs/preset-sheets-conditional-formatting/locales/zh-CN'
@@ -43,8 +43,9 @@ import { exportWorkbookToXlsx } from './export-xlsx.js'
 import { pickAndImportXlsx } from './import-xlsx.js'
 import { createDemoWorkbook } from './demo-data.js'
 import { installExcelProtection, enforceExcelProtection } from './protection.js'
+import { registerCustomIcons } from './ui-icons.js'
 
-const { univerAPI } = createUniver({
+const { univer, univerAPI } = createUniver({
   locale: LocaleType.ZH_CN,
   locales: {
     [LocaleType.ZH_CN]: mergeLocales(
@@ -62,7 +63,8 @@ const { univerAPI } = createUniver({
     ),
   },
   presets: [
-    UniverSheetsCorePreset({ container: 'app' }),
+    // grid：和官方 demo 一样的 Excel 风格工具栏（标签靠左、两排按钮、常用功能大图标）
+    UniverSheetsCorePreset({ container: 'app', ribbonType: 'grid' }),
     UniverSheetsConditionalFormattingPreset(),
     UniverSheetsDataValidationPreset(),
     UniverSheetsFilterPreset(),
@@ -77,6 +79,8 @@ const { univerAPI } = createUniver({
   plugins: [UniverWatermarkPlugin],
 })
 
+registerCustomIcons(univer, univerAPI)
+
 // 保护按 Excel 规则生效：受保护的单元格谁都不能改（包括创建者），直到撤销保护
 installExcelProtection(univerAPI)
 
@@ -84,51 +88,67 @@ createDemoWorkbook(univerAPI)
   .then(() => enforceExcelProtection(univerAPI))
   .catch((err) => console.error('[demo]', err))
 
-// 工具栏「导入 Excel」：纯前端读取 .xlsx 并替换当前工作簿
-univerAPI.createMenu({
-  id: 'custom.import-xlsx',
-  title: '导入 Excel',
-  tooltip: '打开一个 .xlsx 文件（会替换当前工作簿）',
-  order: -2,
-  action: async () => {
-    try {
-      const result = await pickAndImportXlsx(univerAPI)
-      if (!result) return
-      const { workbook, warnings } = result
-      univerAPI.showMessage({ content: `已导入：${workbook.getName()}`, type: 'success' })
-      if (warnings.length) console.warn('[import-xlsx]', warnings)
-    } catch (err) {
-      console.error('[import-xlsx]', err)
-      univerAPI.showMessage({ content: `导入失败：${err.message || err}`, type: 'error' })
-    }
-  },
-}).appendTo('ribbon.start.history')
+// 「开始」标签页的「文件 ▾」下拉：导入 / 导出 Excel（纯前端，不依赖服务端）
+async function importExcel() {
+  try {
+    const result = await pickAndImportXlsx(univerAPI)
+    if (!result) return
+    const { workbook, warnings } = result
+    univerAPI.showMessage({ content: `已导入：${workbook.getName()}`, type: 'success' })
+    if (warnings.length) console.warn('[import-xlsx]', warnings)
+  } catch (err) {
+    console.error('[import-xlsx]', err)
+    univerAPI.showMessage({ content: `导入失败：${err.message || err}`, type: 'error' })
+  }
+}
 
-// 工具栏「导出 Excel」：纯前端导出 .xlsx
-univerAPI.createMenu({
-  id: 'custom.export-xlsx',
-  title: '导出 Excel',
-  tooltip: '把当前工作簿导出为 .xlsx 文件',
-  order: -1,
-  action: async () => {
-    const fWorkbook = univerAPI.getActiveWorkbook()
-    if (!fWorkbook) return
-    try {
-      const { fileName, warnings } = await exportWorkbookToXlsx(univerAPI, fWorkbook)
-      univerAPI.showMessage({ content: `已导出：${fileName}`, type: 'success' })
-      if (warnings.length) console.warn('[export-xlsx]', warnings)
-    } catch (err) {
-      console.error('[export-xlsx]', err)
-      univerAPI.showMessage({ content: `导出失败：${err.message || err}`, type: 'error' })
-    }
+async function exportExcel() {
+  const fWorkbook = univerAPI.getActiveWorkbook()
+  if (!fWorkbook) return
+  try {
+    const { fileName, warnings } = await exportWorkbookToXlsx(univerAPI, fWorkbook)
+    univerAPI.showMessage({ content: `已导出：${fileName}`, type: 'success' })
+    if (warnings.length) console.warn('[export-xlsx]', warnings)
+  } catch (err) {
+    console.error('[export-xlsx]', err)
+    univerAPI.showMessage({ content: `导出失败：${err.message || err}`, type: 'error' })
+  }
+}
+
+// Facade 的 createSubmenu 在工具栏里弹不出选项，所以按 Univer 原生下拉按钮（如「冻结」）的写法注册：
+// 菜单项类型 SUBITEMS + selections，选中某项时执行对应命令
+const injector = univer.__getInjector()
+const commandService = injector.get(ICommandService)
+commandService.registerCommand({ id: 'custom.command.import-xlsx', type: CommandType.COMMAND, handler: () => { importExcel(); return true } })
+commandService.registerCommand({ id: 'custom.command.export-xlsx', type: CommandType.COMMAND, handler: () => { exportExcel(); return true } })
+injector.get(IMenuManagerService).mergeMenu({
+  [RibbonStartGroup.OTHERS]: {
+    'custom.file': {
+      order: 1,
+      // 在 grid 工具栏里占两行的大按钮、显示文字，紧挨「保护」（第 1 列）
+      gridLayout: { row: 1, column: 2, rowSpan: 2, showLabel: true },
+      menuItemFactory: () => ({
+        id: 'custom.file',
+        type: MenuItemType.SUBITEMS,
+        icon: 'CustomFileIcon',
+        title: '文件',
+        tooltip: '导入 / 导出 Excel',
+        selections: [
+          { id: 'custom.command.import-xlsx', value: 'import', label: '导入 Excel', icon: 'CustomImportIcon' },
+          { id: 'custom.command.export-xlsx', value: 'export', label: '导出 Excel', icon: 'CustomExportIcon' },
+        ],
+      }),
+    },
   },
-}).appendTo('ribbon.start.history')
+})
 
 // 「数据」标签页里的“分列”：开源版有分列能力（FRange.splitTextToColumns），但没有菜单入口，这里补一个
 univerAPI.createMenu({
   id: 'custom.split-text-to-columns',
   title: '分列',
   tooltip: '按分隔符把选中的一列文字拆成多列',
+  icon: 'CustomSplitColumnsIcon',
+  gridLayout: { row: 1, column: 1, rowSpan: 2, showLabel: true },
   action: () => {
     const range = univerAPI.getActiveWorkbook()?.getActiveRange()
     if (!range) return
@@ -154,6 +174,8 @@ univerAPI.createMenu({
   id: 'custom.toggle-watermark',
   title: '水印',
   tooltip: '显示 / 隐藏文字水印',
+  icon: 'CustomWatermarkIcon',
+  gridLayout: { row: 1, column: 1, rowSpan: 2, showLabel: true },
   action: () => {
     if (watermarkOn) {
       univerAPI.deleteWatermark()
